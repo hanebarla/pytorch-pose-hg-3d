@@ -11,6 +11,7 @@ preds/*
 *.DS_Store
 *.pth
 *.mat
+.vscode/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
