@@ -25,6 +25,7 @@ model_urls = {
     'resnet152': 'https://download.pytorch.org/models/resnet152-b121ed2d.pth',
 }
 
+
 def conv3x3(in_planes, out_planes, stride=1):
     """3x3 convolution with padding"""
     return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride,
@@ -131,14 +132,14 @@ class PoseResNet(nn.Module):
         # self.final_layer = []
 
         for head in sorted(self.heads):
-          num_output = self.heads[head]
-          self.__setattr__(head, nn.Conv2d(
-              in_channels=256,
-              out_channels=num_output,
-              kernel_size=1,
-              stride=1,
-              padding=0
-          ))
+            num_output = self.heads[head]
+            self.__setattr__(head, nn.Conv2d(
+                in_channels=256,
+                out_channels=num_output,
+                kernel_size=1,
+                stride=1,
+                padding=0
+            ))
 
         # self.final_layer = nn.ModuleList(self.final_layer)
 
@@ -233,15 +234,15 @@ class PoseResNet(nn.Module):
                     nn.init.constant_(m.bias, 0)
             # print('=> init final conv weights from normal distribution')
             for head in self.heads:
-              final_layer = self.__getattr__(head)
-              for m in final_layer.modules():
-                  if isinstance(m, nn.Conv2d):
-                      # nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-                      # print('=> init {}.weight as normal(0, 0.001)'.format(head))
-                      # print('=> init {}.bias as 0'.format(name))
-                      nn.init.normal_(m.weight, std=0.001)
-                      nn.init.constant_(m.bias, 0)
-            #pretrained_state_dict = torch.load(pretrained)
+                final_layer = self.__getattr__(head)
+                for m in final_layer.modules():
+                    if isinstance(m, nn.Conv2d):
+                        # nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                        # print('=> init {}.weight as normal(0, 0.001)'.format(head))
+                        # print('=> init {}.bias as 0'.format(name))
+                        nn.init.normal_(m.weight, std=0.001)
+                        nn.init.constant_(m.bias, 0)
+            # pretrained_state_dict = torch.load(pretrained)
             url = model_urls['resnet{}'.format(num_layers)]
             pretrained_state_dict = model_zoo.load_url(url)
             print('=> loading pretrained model {}'.format(url))
@@ -260,8 +261,8 @@ resnet_spec = {18: (BasicBlock, [2, 2, 2, 2]),
 
 
 def get_pose_net(num_layers, heads):
-  block_class, layers = resnet_spec[num_layers]
+    block_class, layers = resnet_spec[num_layers]
 
-  model = PoseResNet(block_class, layers, heads)
-  model.init_weights(num_layers, pretrained=True)
-  return model
+    model = PoseResNet(block_class, layers, heads)
+    model.init_weights(num_layers, pretrained=True)
+    return model
