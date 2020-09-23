@@ -14,12 +14,13 @@ import cv2
 
 
 def flip(img):
-  return img[:, :, ::-1].copy()  
-  
+    return img[:, :, ::-1].copy()
+
+
 def shuffle_lr(x, shuffle_ref):
-  for e in shuffle_ref:
-    x[e[0]], x[e[1]] = x[e[1]].copy(), x[e[0]].copy()
-  return x
+    for e in shuffle_ref:
+        x[e[0]], x[e[1]] = x[e[1]].copy(), x[e[0]].copy()
+    return x
 
 
 def transform_preds(coords, center, scale, output_size):
@@ -97,52 +98,55 @@ def crop(img, center, scale, output_size, rot=0):
 
     return dst_img
 
+
 def gaussian2D(shape, sigma=1):
     m, n = [(ss - 1.) / 2. for ss in shape]
-    y, x = np.ogrid[-m:m+1,-n:n+1]
+    y, x = np.ogrid[-m:m + 1, -n:n + 1]
 
     h = np.exp(-(x * x + y * y) / (2 * sigma * sigma))
     h[h < np.finfo(h.dtype).eps * h.max()] = 0
     return h
 
+
 def draw_gaussian(heatmap, center, sigma):
-  tmp_size = sigma * 3
-  mu_x = int(center[0] + 0.5)
-  mu_y = int(center[1] + 0.5)
-  w, h = heatmap.shape[0], heatmap.shape[1]
-  ul = [int(mu_x - tmp_size), int(mu_y - tmp_size)]
-  br = [int(mu_x + tmp_size + 1), int(mu_y + tmp_size + 1)]
-  if ul[0] >= h or ul[1] >= w or br[0] < 0 or br[1] < 0:
+    tmp_size = sigma * 3
+    mu_x = int(center[0] + 0.5)
+    mu_y = int(center[1] + 0.5)
+    w, h = heatmap.shape[0], heatmap.shape[1]
+    ul = [int(mu_x - tmp_size), int(mu_y - tmp_size)]
+    br = [int(mu_x + tmp_size + 1), int(mu_y + tmp_size + 1)]
+    if ul[0] >= h or ul[1] >= w or br[0] < 0 or br[1] < 0:
+        return heatmap
+    size = 2 * tmp_size + 1
+    x = np.arange(0, size, 1, np.float32)
+    y = x[:, np.newaxis]
+    x0 = y0 = size // 2
+    g = np.exp(- ((x - x0) ** 2 + (y - y0) ** 2) / (2 * sigma ** 2))
+    g_x = max(0, -ul[0]), min(br[0], h) - ul[0]
+    g_y = max(0, -ul[1]), min(br[1], w) - ul[1]
+    img_x = max(0, ul[0]), min(br[0], h)
+    img_y = max(0, ul[1]), min(br[1], w)
+    try:
+        heatmap[img_y[0]:img_y[1], img_x[0]:img_x[1]] = np.maximum(
+            heatmap[img_y[0]:img_y[1], img_x[0]:img_x[1]],
+            g[g_y[0]:g_y[1], g_x[0]:g_x[1]])
+    except BaseException:
+        print('center', center)
+        print('gx, gy', g_x, g_y)
+        print('img_x, img_y', img_x, img_y)
     return heatmap
-  size = 2 * tmp_size + 1
-  x = np.arange(0, size, 1, np.float32)
-  y = x[:, np.newaxis]
-  x0 = y0 = size // 2
-  g = np.exp(- ((x - x0) ** 2 + (y - y0) ** 2) / (2 * sigma ** 2))
-  g_x = max(0, -ul[0]), min(br[0], h) - ul[0]
-  g_y = max(0, -ul[1]), min(br[1], w) - ul[1]
-  img_x = max(0, ul[0]), min(br[0], h)
-  img_y = max(0, ul[1]), min(br[1], w)
-  try:
-    heatmap[img_y[0]:img_y[1], img_x[0]:img_x[1]] = np.maximum(
-      heatmap[img_y[0]:img_y[1], img_x[0]:img_x[1]],
-      g[g_y[0]:g_y[1], g_x[0]:g_x[1]])
-  except:
-    print('center', center)
-    print('gx, gy', g_x, g_y)
-    print('img_x, img_y', img_x, img_y)
-  return heatmap
+
 
 def adjust_aspect_ratio(s, aspect_ratio, fit_short_side=False):
-  w, h = s[0], s[1]
-  if w > aspect_ratio * h:
-    if fit_short_side:
-      w = h * aspect_ratio
-    else:
-      h = w * 1.0 / aspect_ratio
-  elif w < aspect_ratio * h:
-    if fit_short_side:
-      h = w * 1.0 / aspect_ratio
-    else:
-      w = h * aspect_ratio
-  return np.array([w, h])
+    w, h = s[0], s[1]
+    if w > aspect_ratio * h:
+        if fit_short_side:
+            w = h * aspect_ratio
+        else:
+            h = w * 1.0 / aspect_ratio
+    elif w < aspect_ratio * h:
+        if fit_short_side:
+            h = w * 1.0 / aspect_ratio
+        else:
+            w = h * aspect_ratio
+    return np.array([w, h])
