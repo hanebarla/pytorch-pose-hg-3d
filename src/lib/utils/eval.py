@@ -2,6 +2,9 @@ import numpy as np
 
 
 def get_preds(hm, return_conf=False):
+    """
+    Estimate 2D keypoints position
+    """
     assert len(hm.shape) == 4, 'Input must be a 4-D tensor'
     h = hm.shape[2]
     w = hm.shape[3]
@@ -9,9 +12,11 @@ def get_preds(hm, return_conf=False):
     idx = np.argmax(hm, axis=2)
 
     preds = np.zeros((hm.shape[0], hm.shape[1], 2))
-    for i in range(hm.shape[0]):
-        for j in range(hm.shape[1]):
+    for i in range(hm.shape[0]):  # batchsize
+        for j in range(hm.shape[1]):  # keypoints num
             preds[i, j, 0], preds[i, j, 1] = idx[i, j] % w, idx[i, j] / w
+            if hm[i, j, idx[i, j]] < 0.15:
+                preds[i, j, 0], preds[i, j, 1] = -1, -1
     if return_conf:
         conf = np.amax(hm, axis=2).reshape(hm.shape[0], hm.shape[1], 1)
         return preds, conf
@@ -67,17 +72,25 @@ def accuracy(output, target, acc_idxs):
 
 
 def get_preds_3d(heatmap, depthmap):
+    ignoreidx_img = []
     output_res = max(heatmap.shape[2], heatmap.shape[3])
     preds = get_preds(heatmap).astype(np.int32)
     preds_3d = np.zeros((preds.shape[0], preds.shape[1], 3), dtype=np.float32)
-    for i in range(preds.shape[0]):
-        for j in range(preds.shape[1]):
+    for i in range(preds.shape[0]):  # batchsize
+        ignoreidx = []
+        for j in range(preds.shape[1]):  # keypoints num
             idx = min(j, depthmap.shape[1] - 1)
             pt = preds[i, j]
-            preds_3d[i, j, 2] = depthmap[i, idx, pt[1], pt[0]]
-            preds_3d[i, j, :2] = 1.0 * preds[i, j] / output_res
+            if pt[0] == -1 and pt[1] == -1:
+                preds_3d[i, j, 2] = 0
+                preds_3d[i, j, :2] = 0
+                ignoreidx.append(j)
+            else:
+                preds_3d[i, j, 2] = depthmap[i, idx, pt[1], pt[0]]
+                preds_3d[i, j, :2] = 1.0 * preds[i, j] / output_res
+        ignoreidx_img.append(ignoreidx)
         preds_3d[i] = preds_3d[i] - preds_3d[i, 6:7]
-    return preds_3d
+    return preds_3d, ignoreidx_img
 
 
 def mpjpe(heatmap, depthmap, gt_3d, convert_func):

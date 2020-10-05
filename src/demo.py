@@ -36,18 +36,22 @@ def demo_image(image, model, opt):
     inp = (inp / 255. - mean) / std
     inp = inp.transpose(2, 0, 1)[np.newaxis, ...].astype(np.float32)
     inp = torch.from_numpy(inp).to(opt.device)
-    out = model(inp)[-1]
+    out = model(inp)[-1]  # 'hm': (1, 16, 64, 64), 'depth': (1, 16, 64, 64)
     pred = get_preds(out['hm'].detach().cpu().numpy())[0]
     pred = transform_preds(pred, c, s, (opt.output_w, opt.output_h))
-    pred_3d = get_preds_3d(out['hm'].detach().cpu().numpy(),
-                           out['depth'].detach().cpu().numpy())[0]
+    pred_3d, ignore_idx = get_preds_3d(out['hm'].detach().cpu().numpy(),
+                                       out['depth'].detach().cpu().numpy())
+    pred_3d = pred_3d[0]
+    ignore_idx = ignore_idx[0]
 
     debugger = Debugger()
-    debugger.add_img(image)
+    debugger.add_img(image)  # デバッガークラスに画像をコピー
     debugger.add_point_2d(pred, (255, 0, 0))
-    debugger.add_point_3d(pred_3d, 'b')
+    debugger.add_point_3d(pred_3d, 'b', ignore_idx=ignore_idx)
     debugger.show_all_imgs(pause=False)
     debugger.show_3d()
+
+    print("Done")
 
 
 def main(opt):

@@ -67,10 +67,13 @@ def demo_image(image, model, opt):
     out = model(inp)[-1]
     pred = get_preds(out['hm'].detach().cpu().numpy())[0]
     pred = transform_preds(pred, c, s, (opt.output_w, opt.output_h))
-    pred_3d = get_preds_3d(out['hm'].detach().cpu().numpy(),
-                           out['depth'].detach().cpu().numpy())[0]
+    pred_3d, ignore_idx = get_preds_3d(out['hm'].detach().cpu().numpy(),
+                                      out['depth'].detach().cpu().numpy())
 
-    return image, pred, pred_3d
+    pred_3d = pred_3d[0]
+    ignore_idx = ignore_idx[0]
+
+    return image, pred, pred_3d, ignore_idx
 
 
 def main(opt):
@@ -92,11 +95,13 @@ def main(opt):
 
     while debugger.loop_on:
         ret, frame = camera.read()
-        image, pred, pred_3d = demo_image(frame, model, opt)
+        if frame is None:
+            return print("***No Camera Connecting***")
+        image, pred, pred_3d, ignore_idx = demo_image(frame, model, opt)
 
         debugger.add_img(image)
         debugger.add_point_2d(pred, (255, 0, 0))
-        debugger.add_point_3d(pred_3d, 'b')
+        debugger.add_point_3d(pred_3d, 'b', ignore_idx=ignore_idx)
         debugger.realtime_show(k)
         debugger.destroy_loop()
         debugger.show_all_imgs()

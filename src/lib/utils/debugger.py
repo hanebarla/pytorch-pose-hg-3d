@@ -36,27 +36,39 @@ class Debugger(object):
         self.imgs = {}
         self.edges = edges
 
-    def add_point_3d(self, points, c='b', marker='o', edges=None):
+    def add_point_3d(self, points, c='b', marker='o', edges=None, ignore_idx=None):
         if edges is None:
             edges = self.edges
+        i_edges = edges.copy()
+        for e in i_edges:
+            if e[0] in ignore_idx or e[1] in ignore_idx:
+                i_edges.remove(e)
+        if len(ignore_idx) == 0:
+            print("All Keypoints")
+        elif ignore_idx is None:
+            return print("No ignore_idx")
         # show3D(self.ax, point, c, marker = marker, edges)
         points = points.reshape(-1, 3)
         x, y, z = np.zeros((3, points.shape[0]))
         for j in range(points.shape[0]):
+            if j in ignore_idx:
+                continue
             x[j] = points[j, 0].copy()
             y[j] = points[j, 2].copy()
             z[j] = - points[j, 1].copy()
+            # print("x: {}, y: {}, z: {}".format(x[j], y[j], z[j]))
             self.xmax = max(x[j], self.xmax)
             self.ymax = max(y[j], self.ymax)
             self.zmax = max(z[j], self.zmax)
             self.xmin = min(x[j], self.xmin)
             self.ymin = min(y[j], self.ymin)
             self.zmin = min(z[j], self.zmin)
+            self.ax.scatter(x[j], y[j], z[j], s=200, c=c, marker=marker)
         if c == 'auto':
             c = [(z[j] + 0.5, y[j] + 0.5, x[j] + 0.5)
                  for j in range(points.shape[0])]
-        self.ax.scatter(x, y, z, s=200, c=c, marker=marker)
-        for e in edges:
+        # self.ax.scatter(x, y, z, s=200, c=c, marker=marker)
+        for e in i_edges:
             self.ax.plot(x[e], y[e], z[e], c=c)
 
     def show_3d(self):
