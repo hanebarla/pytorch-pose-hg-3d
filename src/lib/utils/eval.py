@@ -94,7 +94,7 @@ def get_preds_3d(heatmap, depthmap):
 
 
 def mpjpe(heatmap, depthmap, gt_3d, convert_func):
-    preds_3d = get_preds_3d(heatmap, depthmap)
+    preds_3d, ignoreidx_img = get_preds_3d(heatmap, depthmap)
     cnt, pjpe = 0, 0
     for i in range(preds_3d.shape[0]):
         if gt_3d[i].sum() ** 2 > 0:

@@ -66,10 +66,9 @@ class FusionLoss(nn.Module):
         pred = _tranpose_and_gather_scalar(output, ind)
         loss = torch.FloatTensor(1)[0] * 0
         if self.reg_weight > 0:
-            loss += self.reg_weight * reg_loss(pred, target, mask)
+            loss = loss + self.reg_weight * reg_loss(pred, target, mask)
         if self.var_weight > 0:
-            loss += VarLoss(self.device, self.var_weight)(pred,
-                                                          target, mask, gt_2d)[0]  # target for visibility
+            loss = loss + VarLoss(self.device, self.var_weight).apply(pred, target, mask, gt_2d)[0]  # target for visibility
         return loss.to(self.device, non_blocking=True)
 
 
@@ -91,6 +90,7 @@ class VarLoss(Function):
                                 [1, 1],
                                 [1, 1]]
 
+    @staticmethod
     def forward(self, input, visible, mask, gt_2d):
         xy = gt_2d.view(gt_2d.size(0), -1, 2)
         batch_size = input.size(0)
@@ -124,6 +124,7 @@ class VarLoss(Function):
         output = output.cuda(self.device, non_blocking=True)
         return output
 
+    @staticmethod
     def backward(self, grad_output):
         input, visible, mask, gt_2d = self.saved_tensors
         xy = gt_2d.view(gt_2d.size(0), -1, 2)
