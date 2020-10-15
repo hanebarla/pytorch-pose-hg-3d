@@ -142,3 +142,33 @@ class Debugger(object):
     def save_all_imgs(self, path='../debug/'):
         for i, v in self.imgs.items():
             cv2.imwrite(path + '/{}.png'.format(i), v)
+
+
+class Dcam(Debugger):
+    def __init__(self):
+        self.loop_on = 1
+        super().__init__()
+
+    def realtime_show(self, pause=False, k=0):
+        max_range = np.array([self.xmax -
+                              self.xmin, self.ymax -
+                              self.ymin, self.zmax -
+                              self.zmin]).max()
+        Xb = 0.5 * max_range * \
+            np.mgrid[-1:2:2, -1:2:2, -1:2:2][0].flatten() + 0.5 * (self.xmax + self.xmin)
+        Yb = 0.5 * max_range * \
+            np.mgrid[-1:2:2, -1:2:2, -1:2:2][1].flatten() + 0.5 * (self.ymax + self.ymin)
+        Zb = 0.5 * max_range * \
+            np.mgrid[-1:2:2, -1:2:2, -1:2:2][2].flatten() + 0.5 * (self.zmax + self.zmin)
+        for xb, yb, zb in zip(Xb, Yb, Zb):
+            self.ax.plot([xb], [yb], [zb], 'w')
+        self.plt.draw()
+        self.plt.pause(0.1)
+        self.plt.cla()
+
+    def press(self, event):
+        if event.key == 'escape':
+            self.loop_on = 0
+
+    def destroy_loop(self):
+        self.fig.canvas.mpl_connect('key_press_event', self.press)

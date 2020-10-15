@@ -68,13 +68,13 @@ class FusionLoss(nn.Module):
         if self.reg_weight > 0:
             loss = loss + self.reg_weight * reg_loss(pred, target, mask)
         if self.var_weight > 0:
-            loss = loss + VarLoss(self.device, self.var_weight).apply(pred, target, mask, gt_2d)[0]  # target for visibility
+            loss = loss + VarLoss(self.device, self.var_weight).forward(pred, target, mask, gt_2d)[0]  # target for visibility
         return loss.to(self.device, non_blocking=True)
 
 
 class VarLoss(Function):
     def __init__(self, device, var_weight):
-        super(VarLoss, self).__init__()
+        super().__init__()
         self.device = device
         self.var_weight = var_weight
         self.skeleton_idx = [[[0, 1], [1, 2],
@@ -90,7 +90,6 @@ class VarLoss(Function):
                                 [1, 1],
                                 [1, 1]]
 
-    @staticmethod
     def forward(self, input, visible, mask, gt_2d):
         xy = gt_2d.view(gt_2d.size(0), -1, 2)
         batch_size = input.size(0)
@@ -124,7 +123,6 @@ class VarLoss(Function):
         output = output.cuda(self.device, non_blocking=True)
         return output
 
-    @staticmethod
     def backward(self, grad_output):
         input, visible, mask, gt_2d = self.saved_tensors
         xy = gt_2d.view(gt_2d.size(0), -1, 2)
