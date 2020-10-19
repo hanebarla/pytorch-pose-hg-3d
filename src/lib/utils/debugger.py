@@ -23,7 +23,7 @@ mpii_edges = [[0, 1], [1, 2], [2, 6], [6, 3], [3, 4], [4, 5],
 
 
 class Debugger(object):
-    def __init__(self, ipynb=False, edges=mpii_edges):
+    def __init__(self, ipynb=False, edges=mpii_edges, calib_on=0):
         self.ipynb = ipynb
         if not self.ipynb:
             self.plt = plt
@@ -35,6 +35,7 @@ class Debugger(object):
         self.xmin, self.ymin, self.zmin = oo, oo, oo
         self.imgs = {}
         self.edges = edges
+        self.calib_on = calib_on
 
     def add_point_3d(self, points, c='b', marker='o', edges=None, ignore_idx=None):
         if edges is None:

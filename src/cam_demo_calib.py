@@ -12,6 +12,7 @@ import torch
 import torch.utils.data
 from opts import opts
 from model import create_model
+from calibration import Calibration
 from utils.debugger import Dcam
 from utils.image import get_affine_transform, transform_preds
 from utils.eval import get_preds, get_preds_3d
@@ -40,12 +41,26 @@ def demo_image(image, model, opt):
     pred = get_preds(out['hm'].detach().cpu().numpy())[0]
     pred = transform_preds(pred, c, s, (opt.output_w, opt.output_h))
     pred_3d, ignore_idx = get_preds_3d(out['hm'].detach().cpu().numpy(),
-                                      out['depth'].detach().cpu().numpy())
+                                       out['depth'].detach().cpu().numpy())
 
     pred_3d = pred_3d[0]
     ignore_idx = ignore_idx[0]
 
     return image, pred, pred_3d, ignore_idx
+
+
+def prog_img(frame, opt):
+    s = max(frame.shape[0], frame.shape[1]) * 1.0
+    c = np.array([frame.shape[1] / 2., frame.shape[0] / 2.], dtype=np.float32)
+    trans_input = get_affine_transform(
+        c, s, 0, [opt.input_w, opt.input_h])
+    inp = cv2.warpAffine(frame, trans_input, (opt.input_w, opt.input_h),
+                         flags=cv2.INTER_LINEAR)
+    inp = (inp / 255. - mean) / std
+    inp = inp.transpose(2, 0, 1)[np.newaxis, ...].astype(np.float32)
+    inp = torch.from_numpy(inp).to(opt.device)
+
+    return inp
 
 
 def main(opt):
@@ -60,7 +75,10 @@ def main(opt):
 
     model, _, _ = create_model(opt)
     model = model.to(opt.device)
-    model.eval()
+    model.train()
+
+    optimizer = torch.optim.Adam(model.parameters(), 1e-3)
+    CLB = Calibration(optimizer=optimizer)
 
     debugger = Dcam()
     k = 0
@@ -69,18 +87,25 @@ def main(opt):
         ret, frame = camera.read()
         if frame is None:
             return print("***No Camera Connecting***")
-        image, pred, pred_3d, ignore_idx = demo_image(frame, model, opt)
 
-        debugger.add_img(image)
-        debugger.add_point_2d(pred, (255, 0, 0))
-        debugger.add_point_3d(pred_3d, 'b', ignore_idx=ignore_idx)
-        debugger.realtime_show(k)
-        debugger.destroy_loop()
-        debugger.show_all_imgs()
+        if CLB.cmode == 0:
+            inp = prog_img(frame, opt)
+            CLB.step(inp, model)
+            showimg = cv2.putText(frame, "Spread You arms", (80, 530), cv2.FONT_HERSHEY_SIMPLEX, 2.0, (0, 255, 0), 8)
+            cv2.imshow('img', showimg)
+        else:
+            image, pred, pred_3d, ignore_idx = demo_image(frame, model, opt)
 
-        k = cv2.waitKey(10)
-        if k == 27:
-            debugger.loop_on = 0
+            debugger.add_img(image)
+            debugger.add_point_2d(pred, (255, 0, 0))
+            debugger.add_point_3d(pred_3d, 'b', ignore_idx=ignore_idx)
+            debugger.realtime_show(k)
+            debugger.destroy_loop()
+            debugger.show_all_imgs()
+
+            k = cv2.waitKey(10)
+            if k == 27:
+                debugger.loop_on = 0
 
     cv2.destroyAllWindows()
     camera.release()
