@@ -80,7 +80,7 @@ def step(split, epoch, opt, data_loader, model, optimizer=None):
                 device=opt.device, non_blocking=True)
             output[-1]['hm'] = (output[-1]['hm'] + output_flip) / 2
             output[-1]['depth'] = (output[-1]['depth'] + output_depth_flip) / 2
-            # pred = get_preds(output[-1]['hm'].detach().cpu().numpy())
+            # pred, amb_idx = get_preds(output[-1]['hm'].detach().cpu().numpy())
             # preds.append(convert_eval_format(pred, conf, meta)[0])
 
         Loss.update(loss.item(), batch['input'].size(0))
@@ -112,8 +112,10 @@ def step(split, epoch, opt, data_loader, model, optimizer=None):
         else:
             bar.next()
         if opt.debug >= 2:
-            gt = get_preds(batch['target'].cpu().numpy()) * 4
-            pred = get_preds(output[-1]['hm'].detach().cpu().numpy()) * 4
+            gt, amb_idx = get_preds(batch['target'].cpu().numpy())
+            gt *= 4
+            pred, amb_idx = get_preds(output[-1]['hm'].detach().cpu().numpy())
+            pred *= 4
             debugger = Debugger(ipynb=opt.print_iter > 0, edges=edges)
             img = (
                 batch['input'][0].cpu().numpy().transpose(
@@ -132,8 +134,9 @@ def step(split, epoch, opt, data_loader, model, optimizer=None):
                 batch['meta']['gt_3d'].detach().numpy()[0],
                 'r',
                 edges=edges_3d)
-            pred_3d = get_preds_3d(output[-1]['hm'].detach().cpu().numpy(),
-                                   output[-1]['depth'].detach().cpu().numpy())
+            pred_3d, ignore_idx = get_preds_3d(output[-1]['hm'].detach().cpu().numpy(),
+                                               output[-1]['depth'].detach().cpu().numpy(),
+                                               amb_idx)
             debugger.add_point_3d(
                 convert_eval_format(
                     pred_3d[0]), 'b', edges=edges_3d)

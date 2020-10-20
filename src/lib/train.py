@@ -88,8 +88,10 @@ def step(split, epoch, opt, data_loader, model, optimizer=None):
         else:
             bar.next()
         if opt.debug >= 2:
-            gt = get_preds(target.cpu().numpy()) * 4
-            pred = get_preds(output[-1]['hm'].detach().cpu().numpy()) * 4
+            gt, amb_idx = get_preds(target.cpu().numpy())
+            gt *= 4
+            pred, amb_idx = get_preds(output[-1]['hm'].detach().cpu().numpy())
+            pred *= 4
             debugger = Debugger(ipynb=opt.print_iter > 0, edges=edges)
             img = (input[0].numpy().transpose(1, 2, 0) * std + mean) * 256
             img = img.astype(np.uint8).copy()

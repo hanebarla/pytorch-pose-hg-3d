@@ -37,10 +37,12 @@ def demo_image(image, model, opt):
     inp = inp.transpose(2, 0, 1)[np.newaxis, ...].astype(np.float32)
     inp = torch.from_numpy(inp).to(opt.device)
     out = model(inp)[-1]  # 'hm': (1, 16, 64, 64), 'depth': (1, 16, 64, 64)
-    pred = get_preds(out['hm'].detach().cpu().numpy())[0]
+    preds, amb_idx = get_preds(out['hm'].detach().cpu().numpy())
+    pred = preds[0]
     pred = transform_preds(pred, c, s, (opt.output_w, opt.output_h))
     pred_3d, ignore_idx = get_preds_3d(out['hm'].detach().cpu().numpy(),
-                                       out['depth'].detach().cpu().numpy())
+                                       out['depth'].detach().cpu().numpy(),
+                                       amb_idx)
     pred_3d = pred_3d[0]
     ignore_idx = ignore_idx[0]
 

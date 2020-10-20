@@ -14,9 +14,10 @@ class Calibration():
             out = model(frame)[-1]
             loss = Clibloss(out)
 
-            if loss.item() < 0.1:
+            if loss.item() < 1e-4:
                 self.cmode = 1
                 model.eval()
+                cv2.destroyWindow('img')
 
             self.optimizer.zero_grad()
             loss.backward()

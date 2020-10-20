@@ -38,10 +38,12 @@ def demo_image(image, model, opt):
     inp = inp.transpose(2, 0, 1)[np.newaxis, ...].astype(np.float32)
     inp = torch.from_numpy(inp).to(opt.device)
     out = model(inp)[-1]
-    pred = get_preds(out['hm'].detach().cpu().numpy())[0]
+    preds, amb_idx = get_preds(out['hm'].detach().cpu().numpy())
+    pred = preds[0]
     pred = transform_preds(pred, c, s, (opt.output_w, opt.output_h))
     pred_3d, ignore_idx = get_preds_3d(out['hm'].detach().cpu().numpy(),
-                                       out['depth'].detach().cpu().numpy())
+                                       out['depth'].detach().cpu().numpy(),
+                                       amb_idx)
 
     pred_3d = pred_3d[0]
     ignore_idx = ignore_idx[0]
@@ -91,7 +93,7 @@ def main(opt):
         if CLB.cmode == 0:
             inp = prog_img(frame, opt)
             CLB.step(inp, model)
-            showimg = cv2.putText(frame, "Spread You arms", (80, 530), cv2.FONT_HERSHEY_SIMPLEX, 2.0, (0, 255, 0), 8)
+            showimg = cv2.putText(frame, "Spread Your arms", (0, int(frame.shape[1]/2)), cv2.FONT_HERSHEY_SIMPLEX, 2.0, (0, 255, 0), 8)
             cv2.imshow('img', showimg)
         else:
             image, pred, pred_3d, ignore_idx = demo_image(frame, model, opt)
@@ -103,9 +105,11 @@ def main(opt):
             debugger.destroy_loop()
             debugger.show_all_imgs()
 
-            k = cv2.waitKey(10)
-            if k == 27:
-                debugger.loop_on = 0
+        k = cv2.waitKey(10)
+        if k == 27:
+            debugger.loop_on = 0
+
+        del ret, frame
 
     cv2.destroyAllWindows()
     camera.release()
