@@ -75,6 +75,9 @@ def main(opt):
     else:
         opt.device = torch.device('cpu')
 
+    if opt.demo != "":
+        clb_img = cv2.imread(opt.demo)
+
     model, _, _ = create_model(opt)
     model = model.to(opt.device)
     model.train()
@@ -91,6 +94,8 @@ def main(opt):
             return print("***No Camera Connecting***")
 
         if CLB.cmode == 0:
+            if opt.demo != "":
+                frame = clb_img
             inp = prog_img(frame, opt)
             CLB.step(inp, model)
             showimg = cv2.putText(frame, "Spread Your arms", (0, int(frame.shape[1]/2)), cv2.FONT_HERSHEY_SIMPLEX, 2.0, (0, 255, 0), 8)
