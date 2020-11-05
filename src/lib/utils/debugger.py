@@ -44,9 +44,7 @@ class Debugger(object):
         for e in i_edges:
             if e[0] in ignore_idx or e[1] in ignore_idx:
                 i_edges.remove(e)
-        if len(ignore_idx) == 0:
-            print("All Keypoints")
-        elif ignore_idx is None:
+        if ignore_idx is None:
             return print("No ignore_idx")
         # show3D(self.ax, point, c, marker = marker, edges)
         points = points.reshape(-1, 3)

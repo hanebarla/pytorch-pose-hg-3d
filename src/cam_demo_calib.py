@@ -83,7 +83,7 @@ def main(opt):
     model.train()
 
     optimizer = torch.optim.Adam(model.parameters(), 1e-3)
-    CLB = Calibration(optimizer=optimizer)
+    CLB = Calibration(optimizer=optimizer, opt=opt)
 
     debugger = Dcam()
     k = 0
