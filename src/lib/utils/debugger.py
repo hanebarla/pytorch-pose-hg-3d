@@ -23,13 +23,14 @@ mpii_edges = [[0, 1], [1, 2], [2, 6], [6, 3], [3, 4], [4, 5],
 
 
 class Debugger(object):
-    def __init__(self, ipynb=False, edges=mpii_edges, calib_on=0):
+    def __init__(self, ipynb=False, edges=mpii_edges, name="Default", calib_on=0):
         self.ipynb = ipynb
         if not self.ipynb:
             self.plt = plt
             self.fig = self.plt.figure()
             self.ax = self.fig.add_subplot((111), projection='3d')
             self.ax.grid(False)
+            self.plt.title(name)
         oo = 1e10
         self.xmax, self.ymax, self.zmax = -oo, -oo, -oo
         self.xmin, self.ymin, self.zmin = oo, oo, oo
@@ -144,9 +145,9 @@ class Debugger(object):
 
 
 class Dcam(Debugger):
-    def __init__(self):
+    def __init__(self, ipynb=False, edges=mpii_edges, name="Default", calib_on=0):
         self.loop_on = 1
-        super().__init__()
+        super().__init__(ipynb, edges, name, calib_on)
 
     def realtime_show(self, pause=False, k=0):
         max_range = np.array([self.xmax -

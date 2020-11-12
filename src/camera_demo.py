@@ -49,7 +49,11 @@ def demo_image(image, model, opt):
 
 
 def main(opt):
-    camera = cv2.VideoCapture(0)
+    if opt.mode == "video":
+        assert opt.video != '', "No demo path"
+        camera = cv2.VideoCapture(opt.video)
+    else:
+        camera = cv2.VideoCapture(0)
     opt.heads['depth'] = opt.num_output
     if opt.load_model == '':
         opt.load_model = '../models/fusion_3d_var.pth'

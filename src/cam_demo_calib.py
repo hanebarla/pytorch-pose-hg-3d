@@ -1,6 +1,7 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+from os import name
 
 import _init_paths
 
@@ -10,6 +11,7 @@ import cv2
 import numpy as np
 import torch
 import torch.utils.data
+from lib.utils.debugger import Debugger
 from opts import opts
 from model import create_model
 from calibration import Calibration
@@ -66,7 +68,11 @@ def prog_img(frame, opt):
 
 
 def main(opt):
-    camera = cv2.VideoCapture(0)
+    if opt.mode == "video":
+        assert opt.demo != '', "No demo path"
+        camera = cv2.VideoCapture(opt.video)
+    else:
+        camera = cv2.VideoCapture(0)
     opt.heads['depth'] = opt.num_output
     if opt.load_model == '':
         opt.load_model = '../models/fusion_3d_var.pth'
@@ -77,6 +83,8 @@ def main(opt):
 
     if opt.demo != "":
         clb_img = cv2.imread(opt.demo)
+    else:
+        clb_img = None
 
     model, _, _ = create_model(opt)
     model = model.to(opt.device)
@@ -89,9 +97,8 @@ def main(opt):
     k = 0
 
     while debugger.loop_on:
-        ret, frame = camera.read()
-        if frame is None:
-            return print("***No Camera Connecting***")
+        frame = None
+        ret = None
 
         if CLB.cmode == 0:
             if opt.demo != "":
@@ -101,7 +108,12 @@ def main(opt):
             showimg = cv2.putText(frame, "Spread Your arms", (0, int(frame.shape[1]/2)), cv2.FONT_HERSHEY_SIMPLEX, 2.0, (0, 255, 0), 8)
             cv2.imshow('img', showimg)
         else:
-            image, pred, pred_3d, ignore_idx = demo_image(frame, model, opt)
+            ret, frame = camera.read()
+
+            if frame is None:
+                return print("***No Camera Connecting***")
+
+            image, pred, pred_3d, ignore_idx = demo_image(frame, model, opt)  # キャリブレーション
 
             debugger.add_img(image)
             debugger.add_point_2d(pred, (255, 0, 0))

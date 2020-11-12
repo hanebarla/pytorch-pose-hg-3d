@@ -54,6 +54,9 @@ class opts():
         self.parser.add_argument('--output_h', type=int, default=-1)
         self.parser.add_argument('--output_w', type=int, default=-1)
 
+        self.parser.add_argument("--mode", choices=["camera", "video"], default="camera")
+        self.parser.add_argument("--video", default='')
+
     def parse(self, args=''):
         if args == '':
             opt = self.parser.parse_args()

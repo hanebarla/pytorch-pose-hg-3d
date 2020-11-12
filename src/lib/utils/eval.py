@@ -10,14 +10,14 @@ def get_preds(hm, return_conf=False):
     w = hm.shape[3]
     hm = hm.reshape(hm.shape[0], hm.shape[1], hm.shape[2] * hm.shape[3])
     idx = np.argmax(hm, axis=2)
-    hmmax = np.max()
+    hmmax = np.max(hm, axis=2)
     ambiguous_idx = {}
 
     preds = np.zeros((hm.shape[0], hm.shape[1], 2))
     for i in range(hm.shape[0]):  # batchsize
         for j in range(hm.shape[1]):  # keypoints num
             preds[i, j, 0], preds[i, j, 1] = idx[i, j] % w, idx[i, j] / w
-            if hm[i, j, idx[i, j]] < hmmax * 0.1:  # Ambiguous keypoints
+            if hm[i, j, idx[i, j]] < hmmax[i, j] * 0.1:  # Ambiguous keypoints
                 ambiguous_idx[(i, j)] = [idx[i, j] % w, idx[i, j] / w]
     if return_conf:
         conf = np.amax(hm, axis=2).reshape(hm.shape[0], hm.shape[1], 1)
