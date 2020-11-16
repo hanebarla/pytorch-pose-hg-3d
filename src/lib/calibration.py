@@ -19,7 +19,7 @@ class Calibration():
             else:
                 loss = ImgLoss(out)
 
-            if loss.item() < 1e-4:
+            if loss.item() < 1e-3:
                 self.cmode = 1
                 model.eval()
                 cv2.destroyWindow('img')
