@@ -252,6 +252,26 @@ class PoseResNet(nn.Module):
             print('=> please download it first')
             raise ValueError('imagenet pretrained model does not exist')
 
+    def get_feature_map(self, x):
+        y = self.conv1(x)
+        y = self.bn1(y)
+        y = self.relu(y)
+        y = self.maxpool(y)
+
+        y = self.layer1(y)
+        y = self.layer2(y)
+        y = self.layer3(y)
+        y = self.layer4(y)
+
+        return y
+
+    def get_deconv_layers(self, x):
+        x = self.deconv_layers(x)
+        ret = {}
+        for head in self.heads:
+            ret[head] = self.__getattr__(head)(x)
+        return [ret]
+
 
 resnet_spec = {18: (BasicBlock, [2, 2, 2, 2]),
                34: (BasicBlock, [3, 4, 6, 3]),

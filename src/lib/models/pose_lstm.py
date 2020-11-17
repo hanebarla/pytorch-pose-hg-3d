@@ -1,4 +1,3 @@
-import torch
 import torch.nn as nn
 
 
@@ -7,5 +6,7 @@ class PoseLSTM(nn.Module):
         super().__init__()
         self.lstm = nn.LSTM(input_size=i_dim, hidden_size=h_dim, num_layers=l_num)
 
-    def forward(self, x):
-        _, lstm_out = self.lstm(x)
+    def forward(self, x, hp, cp):
+        y, (hn, cn) = self.lstm(x, (hp, cp))
+
+        return y, (hn, cn)
