@@ -9,7 +9,7 @@ from models.losses import RegLoss, FusionLoss
 import time
 
 
-def step(split, epoch, opt, data_loader, model, optimizer=None):
+def step(split, epoch, opt, data_loader, model, lstm, optimizer=None):
     if split == 'train':
         model.train()
     else:
@@ -35,15 +35,27 @@ def step(split, epoch, opt, data_loader, model, optimizer=None):
     nIters = len(data_loader)
     bar = Bar('{}'.format(opt.exp_id), max=nIters)
 
+    hn = torch.randn(5, 5, 5)
+    cn = torch.randn(5, 5, 5)
+
     end = time.time()
     for i, batch in enumerate(data_loader):
+        print(batch.size())
         data_time.update(time.time() - end)
         for k in batch:
             if k != 'meta':
                 batch[k] = batch[k].cuda(device=opt.device, non_blocking=True)
         gt_2d = batch['meta']['pts_crop'].cuda(
             device=opt.device, non_blocking=True).float() / opt.output_h
-        output = model(batch['input'])
+
+        with torch.no_grad():
+            feature_map = model.get_feature_map(batch['input'])
+            fm_batch, fm_ch, fm_w, fm_h = feature_map.size()[0], feature_map.size()[1], feature_map.size()[2], feature_map.size()[3]
+            fmap_flat = feature_map.view(fm_batch, fm_ch * fm_w * fm_w)
+
+        out_layer, (hn, cn) = lstm(fmap_flat, (hn, cn))
+        out_conv_layer = out_layer.view(fm_batch, fm_ch, fm_w, fm_h)
+        output = model.get_deconv_layers(out_conv_layer)
 
         loss = crit(output[-1]['hm'], batch['target'])
         loss_3d = crit_3d(
@@ -150,12 +162,12 @@ def step(split, epoch, opt, data_loader, model, optimizer=None):
             'time': bar.elapsed_td.total_seconds() / 60.}, preds
 
 
-def train_3d(epoch, opt, train_loader, model, optimizer):
-    return step('train', epoch, opt, train_loader, model, optimizer)
+def train_lstm(epoch, opt, train_loader, model, lstm, optimizer):
+    return step('train', epoch, opt, train_loader, model, lstm, optimizer)
 
 
-def val_3d(epoch, opt, val_loader, model):
-    return step('val', epoch, opt, val_loader, model)
+def val_lstm(epoch, opt, val_loader, model, lstm):
+    return step('val', epoch, opt, val_loader, model, lstm)
 
 
 class AverageMeter(object):
@@ -175,4 +187,3 @@ class AverageMeter(object):
         self.sum += val * n
         self.count += n
         self.avg = self.sum / self.count
-

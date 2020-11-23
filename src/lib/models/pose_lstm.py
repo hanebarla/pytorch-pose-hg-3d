@@ -10,3 +10,7 @@ class PoseLSTM(nn.Module):
         y, (hn, cn) = self.lstm(x, (hp, cp))
 
         return y, (hn, cn)
+
+
+def get_pose_lstm(opt, idim, hdim, lnum):
+    return PoseLSTM(idim, hdim, lnum)

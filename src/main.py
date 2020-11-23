@@ -16,6 +16,7 @@ from datasets.fusion_3d import Fusion3D
 from logger import Logger
 from train import train, val
 from train_3d import train_3d, val_3d
+from train_lstm import train_lstm, val_lstm
 import scipy.io as sio
 
 dataset_factory = {
@@ -26,7 +27,8 @@ dataset_factory = {
 
 task_factory = {
     'human2d': (train, val),
-    'human3d': (train_3d, val_3d)
+    'human3d': (train_3d, val_3d),
+    "lstm": (train_lstm, val_lstm)
 }
 
 

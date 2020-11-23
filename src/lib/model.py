@@ -4,6 +4,7 @@ import torch.nn as nn
 import os
 
 from models.msra_resnet import get_pose_net
+from models.pose_lstm import get_pose_lstm
 
 
 def create_model(opt):
@@ -38,6 +39,12 @@ def create_model(opt):
                         state[k] = v.cuda(opt.device, non_blocking=True)
 
     return model, optimizer, start_epoch
+
+
+def create_lstm(opt, idim, hdim, lnum):
+    lstm = get_pose_lstm(opt, idim, hdim, lnum)
+
+    return lstm
 
 
 def save_model(path, epoch, model, optimizer=None):

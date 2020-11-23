@@ -6,11 +6,12 @@ from .h36m import H36M
 
 
 class Fusion3D(data.Dataset):
-    def __init__(self, opt, split):
+    def __init__(self, opt, split, lstm=0):
         self.opt = opt
         self.ratio3D = 1
         self.split = split
-        self.dataset3D = H36M(opt, split)
+        self.lstm_on = lstm
+        self.dataset3D = H36M(opt, split, lstm=lstm)
         if self.split == 'train':
             self.dataset2D = MPII(opt, split)
             self.nImages2D = len(self.dataset2D)

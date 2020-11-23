@@ -9,24 +9,28 @@ import os
 import torch
 import torch.utils.data
 from opts import opts
-from model import create_model, save_model
+from model import create_model, save_model, create_lstm
 from datasets.mpii import MPII
 from datasets.coco import COCO
 from datasets.fusion_3d import Fusion3D
+from datasets.h36m import H36M, SeqH36m
 from logger import Logger
 from train import train, val
 from train_3d import train_3d, val_3d
+from train_lstm import train_lstm, val_lstm
 import scipy.io as sio
 
 dataset_factory = {
     'mpii': MPII,
     'coco': COCO,
-    'fusion_3d': Fusion3D
+    'fusion_3d': Fusion3D,
+    'lstm': H36M
 }
 
 task_factory = {
     'human2d': (train, val),
-    'human3d': (train_3d, val_3d)
+    'human3d': (train_3d, val_3d),
+    "lstm": (train_lstm, val_lstm)
 }
 
 
@@ -39,9 +43,11 @@ def main(opt):
     opt.device = torch.device('cuda:{}'.format(opt.gpus[0]))
 
     Dataset = dataset_factory[opt.dataset]
+    LstmData = SeqH36m(Dataset(opt, 'train', 1), 5)
     train, val = task_factory[opt.task]
 
     model, optimizer, start_epoch = create_model(opt)
+    lstm = create_lstm(opt, 2048 * 8 * 8, 2048 * 8 * 8, opt.lstm_layer_num)
 
     if len(opt.gpus) > 1:
         model = torch.nn.DataParallel(
@@ -67,7 +73,7 @@ def main(opt):
         return
 
     train_loader = torch.utils.data.DataLoader(
-        Dataset(opt, 'train'),
+        LstmData,
         batch_size=opt.batch_size * len(opt.gpus),
         shuffle=True,  # if opt.debug == 0 else False,
         num_workers=opt.num_workers,
@@ -77,12 +83,12 @@ def main(opt):
     best = -1
     for epoch in range(start_epoch, opt.num_epochs + 1):
         mark = epoch if opt.save_all_models else 'last'
-        log_dict_train, _ = train(epoch, opt, train_loader, model, optimizer)
+        log_dict_train, _ = train(epoch, opt, train_loader, model, lstm, optimizer)
         for k, v in log_dict_train.items():
             logger.scalar_summary('train_{}'.format(k), v, epoch)
             logger.write('{} {:8f} | '.format(k, v))
         if opt.val_intervals > 0 and epoch % opt.val_intervals == 0:
-            save_model(os.path.join(opt.save_dir, 'model_{}.pth'.format(mark)),
+            save_model(os.path.join(opt.save_dir, 'model_lstm_{}.pth'.format(mark)),
                        epoch, model, optimizer)
             log_dict_val, preds = val(epoch, opt, val_loader, model)
             for k, v in log_dict_val.items():
@@ -90,10 +96,10 @@ def main(opt):
                 logger.write('{} {:8f} | '.format(k, v))
             if log_dict_val[opt.metric] > best:
                 best = log_dict_val[opt.metric]
-                save_model(os.path.join(opt.save_dir, 'model_best.pth'),
+                save_model(os.path.join(opt.save_dir, 'model_lstm_best.pth'),
                            epoch, model)
         else:
-            save_model(os.path.join(opt.save_dir, 'model_last.pth'),
+            save_model(os.path.join(opt.save_dir, 'model_lstm_last.pth'),
                        epoch, model, optimizer)
         logger.write('\n')
         if epoch in opt.lr_step:

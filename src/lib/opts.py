@@ -57,6 +57,8 @@ class opts():
         self.parser.add_argument("--mode", choices=["camera", "video"], default="camera")
         self.parser.add_argument("--video", default='')
 
+        self.parser.add_argument("--lstm_layer_num", default=1)
+
     def parse(self, args=''):
         if args == '':
             opt = self.parser.parse_args()

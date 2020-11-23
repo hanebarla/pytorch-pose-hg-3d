@@ -5,6 +5,8 @@ import torch
 import json
 import cv2
 import pickle
+
+from torch.utils.data.dataset import Dataset
 from utils.image import flip, shuffle_lr
 from utils.image import draw_gaussian, adjust_aspect_ratio
 from utils.image import get_affine_transform, affine_transform
@@ -12,8 +14,9 @@ from utils.image import transform_preds
 
 
 class H36M(data.Dataset):
-    def __init__(self, opt, split):
+    def __init__(self, opt, split, lstm=0):
         print('==> initializing 3D {} data.'.format(split))
+        self.lstm_on = lstm
         self.num_joints = 16
         self.num_eval_joints = 17
         self.h36m_to_mpii = [3, 2, 1, 4, 5, 6,
@@ -72,7 +75,7 @@ class H36M(data.Dataset):
         return gt_3d, pts, c, s
 
     def __getitem__(self, index):
-        if index == 0 and self.split == 'train':
+        if index == 0 and self.split == 'train' and self.lstm_on == 0:
             self.idxs = np.random.choice(
                 self.num_samples, self.num_samples, replace=False)
         img = self._load_image(index)
@@ -165,3 +168,19 @@ class H36M(data.Dataset):
         for e in self.edges_3d:
             sum_bone_length += ((pts[e[0]] - pts[e[1]]) ** 2).sum() ** 0.5
         return sum_bone_length
+
+
+class SeqH36m(Dataset):
+    def __init__(self, datasets, time_steps) -> None:
+        self.dataset = datasets
+        self.time_steps = time_steps
+        self.video = [i for i in range(time_steps)]
+
+    def __len__(self) -> int:
+        return len(self.dataset) - self.time_steps
+
+    def __getitem__(self, index: int):
+        for i in range(self.time_steps):
+            self.video[i] = self.dataset[index + i][0]
+
+        return self.video
