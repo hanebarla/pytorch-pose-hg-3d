@@ -181,6 +181,6 @@ class SeqH36m(Dataset):
 
     def __getitem__(self, index: int):
         for i in range(self.time_steps):
-            self.video[i] = self.dataset[index + i][0]
+            self.video[i] = self.dataset[index + i]
 
         return self.video

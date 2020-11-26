@@ -90,6 +90,8 @@ def get_preds_3d(heatmap, depthmap, ambiguous_idx=None):
                     ignoreidx.append(j)
             except KeyError:
                 pass
+            except TypeError:
+                pass
             preds_3d[i, j, 2] = depthmap[i, idx, pt[1], pt[0]]
             preds_3d[i, j, :2] = 1.0 * preds[i, j] / output_res
         ignoreidx_img.append(ignoreidx)

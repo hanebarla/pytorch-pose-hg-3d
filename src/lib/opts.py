@@ -107,6 +107,7 @@ class opts():
 
         opt.num_output = 17 if opt.dataset == 'coco' else 16
         opt.num_output_depth = opt.num_output if opt.task == 'human3d' else 0
+        opt.num_output_depth = opt.num_output if opt.task == 'lstm' else opt.num_output
         opt.heads = {'hm': opt.num_output}
         if opt.num_output_depth > 0:
             opt.heads['depth'] = opt.num_output_depth

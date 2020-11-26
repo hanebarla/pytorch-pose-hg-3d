@@ -2,15 +2,19 @@ import torch.nn as nn
 
 
 class PoseLSTM(nn.Module):
-    def __init__(self, i_dim=10, h_dim=10, l_num=10) -> None:
+    def __init__(self, i_dim=10, outdim=5) -> None:
         super().__init__()
-        self.lstm = nn.LSTM(input_size=i_dim, hidden_size=h_dim, num_layers=l_num)
+        self.lstmin_linear = nn.Linear(i_dim, 10)
+        self.lstm = nn.LSTM(input_size=10, hidden_size=10, batch_first=True)
+        self.lstmout_linear = nn.Linear(10, i_dim)
 
-    def forward(self, x, hp, cp):
-        y, (hn, cn) = self.lstm(x, (hp, cp))
+    def forward(self, x, hidden):
+        x = self.lstmin_linear(x)
+        y, hd = self.lstm(x, hidden)
+        y = self.lstmout_linear(y)
 
-        return y, (hn, cn)
+        return y, hd
 
 
 def get_pose_lstm(opt, idim, hdim, lnum):
-    return PoseLSTM(idim, hdim, lnum)
+    return PoseLSTM(idim, hdim)
