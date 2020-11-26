@@ -41,20 +41,34 @@ def step(split, epoch, opt, data_loader, model, lstm, optimizer=None, timestep=5
     end = time.time()
     for i, batches in enumerate(data_loader):
         data_time.update(time.time() - end)
+        lstm_ba = []
+        size_tuples = []
+
         for j in range(timestep):
             batch = batches[j]
+            for k in batch:
+                if k != 'meta':
+                    batch[k] = batch[k].cuda(device=opt.device, non_blocking=True)
+            with torch.no_grad():
+                feature_map = model.get_feature_map(batch['input'])
+                fm_batch, fm_ch, fm_w, fm_h = feature_map.size()[0], feature_map.size()[1], feature_map.size()[2], feature_map.size()[3]
+                fmap_flat = feature_map.view(fm_batch, fm_ch * fm_w * fm_h)
+                size_tuples.append((fm_batch, fm_ch, fm_w, fm_h))
+                lstm_ba.append(fmap_flat)
+
+        lstm_ba_torch = torch.stack(lstm_ba, dim=1)
+        out_layers, hn = lstm(lstm_ba_torch, hn)
+
+        for j in range(timestep):
+            batch = batches[j]
+            out_layer = out_layers[:, j, :]
+            fm_batch, fm_ch, fm_w, fm_h = size_tuples[j]
             for k in batch:
                 if k != 'meta':
                     batch[k] = batch[k].cuda(device=opt.device, non_blocking=True)
             gt_2d = batch['meta']['pts_crop'].cuda(
                 device=opt.device, non_blocking=True).float() / opt.output_h
 
-            with torch.no_grad():
-                feature_map = model.get_feature_map(batch['input'])
-                fm_batch, fm_ch, fm_w, fm_h = feature_map.size()[0], feature_map.size()[1], feature_map.size()[2], feature_map.size()[3]
-                fmap_flat = feature_map.view(fm_batch, 1, fm_ch * fm_w * fm_h)
-
-            out_layer, hn = lstm(fmap_flat, hn)
             out_conv_layer = out_layer.view(fm_batch, fm_ch, fm_w, fm_h)
             output = model.get_deconv_layers(out_conv_layer)
 
