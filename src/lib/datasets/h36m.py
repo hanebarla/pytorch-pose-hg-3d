@@ -174,13 +174,34 @@ class SeqH36m(Dataset):
     def __init__(self, datasets, time_steps) -> None:
         self.dataset = datasets
         self.time_steps = time_steps
-        self.video = [i for i in range(time_steps)]
 
     def __len__(self) -> int:
         return len(self.dataset) - self.time_steps
 
     def __getitem__(self, index: int):
-        for i in range(self.time_steps):
-            self.video[i] = self.dataset[index + i]
+        video_input = []
+        video_out = []
+        video_meta = []
+        video_reg_target = []
+        video_reg_ind = []
+        video_reg_mask = []
 
-        return self.video
+        for i in range(self.time_steps):
+            d = self.dataset[index + i]
+            video_input.append(d['input'])
+            video_out.append(d['target'])
+            video_meta.append(d['meta'])
+            video_reg_target.append(d['reg_target'])
+            video_reg_ind.append(d['reg_ind'])
+            video_reg_mask.append(d['reg_mask'])
+
+        video = {
+            'input': video_input,
+            'target': video_out,
+            'meta': video_meta,
+            'reg_target': video_reg_target,
+            'reg_ind': video_reg_ind,
+            'reg_mask': video_reg_mask
+        }
+
+        return video

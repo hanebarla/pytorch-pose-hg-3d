@@ -39,7 +39,7 @@ def main(opt):
         torch.backends.cudnn.enabled = False
         print('Cudnn is disabled.')
 
-    timestep = 5
+    timestep = 4
 
     logger = Logger(opt)
     opt.device = torch.device('cuda:{}'.format(opt.gpus[0]))
@@ -48,19 +48,14 @@ def main(opt):
     LstmData = SeqH36m(Dataset(opt, 'train', 1), timestep)
     train, val = task_factory[opt.task]
 
-    model, optimizer, start_epoch = create_model(opt)
-    lstm = create_lstm(opt, 2048 * 8 * 8, 10, opt.lstm_layer_num)
+    model, optimizer, start_epoch = create_lstm(opt, timestep)
 
     if len(opt.gpus) > 1:
         model = torch.nn.DataParallel(
             model, device_ids=opt.gpus).cuda(
             opt.device)
-        lstm = torch.nn.DataParallel(
-            lstm, device_ids=opt.gputs
-        ).cuda(opt.device)
     else:
         model = model.cuda(opt.device)
-        lstm = lstm.cuda(opt.device)
 
     val_loader = torch.utils.data.DataLoader(
         Dataset(opt, 'val'),
@@ -87,7 +82,7 @@ def main(opt):
     best = -1
     for epoch in range(start_epoch, opt.num_epochs + 1):
         mark = epoch if opt.save_all_models else 'last'
-        log_dict_train, _ = train(epoch, opt, train_loader, model, lstm, optimizer, 5)
+        log_dict_train, _ = train(epoch, opt, train_loader, model, optimizer, timestep)
         for k, v in log_dict_train.items():
             logger.scalar_summary('train_{}'.format(k), v, epoch)
             logger.write('{} {:8f} | '.format(k, v))

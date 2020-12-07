@@ -10,7 +10,7 @@ from models.losses import RegLoss, FusionLoss
 import time
 
 
-def step(split, epoch, opt, data_loader, model, lstm, optimizer=None, timestep=5):
+def step(split, epoch, opt, data_loader, model, optimizer=None, timestep=4):
     if split == 'train':
         model.train()
     else:
@@ -36,59 +36,42 @@ def step(split, epoch, opt, data_loader, model, lstm, optimizer=None, timestep=5
     nIters = len(data_loader)
     bar = Bar('{}'.format(opt.exp_id), max=nIters)
 
-    hn = None
+    hidden = None
 
     end = time.time()
     for i, batches in enumerate(data_loader):
         data_time.update(time.time() - end)
-        lstm_ba = []
-        size_tuples = []
+        loss = 0
 
-        for j in range(timestep):
-            batch = batches[j]
-            for k in batch:
-                if k != 'meta':
-                    batch[k] = batch[k].cuda(device=opt.device, non_blocking=True)
-            with torch.no_grad():
-                feature_map = model.get_feature_map(batch['input'])
-                fm_batch, fm_ch, fm_w, fm_h = feature_map.size()[0], feature_map.size()[1], feature_map.size()[2], feature_map.size()[3]
-                fmap_flat = feature_map.view(fm_batch, fm_ch * fm_w * fm_h)
-                size_tuples.append((fm_batch, fm_ch, fm_w, fm_h))
-                lstm_ba.append(fmap_flat)
+        for k in batches:
+            if k != 'meta':
+                for t in range(timestep):
+                    batches[k][t] = batches[k][t].cuda(device=opt.device, non_blocking=True)
 
-        lstm_ba_torch = torch.stack(lstm_ba, dim=1)
-        out_layers, hn = lstm(lstm_ba_torch, hn)
+        out_rets = model(batches['input'], hidden)
 
-        for j in range(timestep):
-            batch = batches[j]
-            out_layer = out_layers[:, j, :]
-            fm_batch, fm_ch, fm_w, fm_h = size_tuples[j]
-            for k in batch:
-                if k != 'meta':
-                    batch[k] = batch[k].cuda(device=opt.device, non_blocking=True)
-            gt_2d = batch['meta']['pts_crop'].cuda(
+        for t in range(timestep):
+            gt_2d = batches['meta'][t]['pts_crop'].cuda(
                 device=opt.device, non_blocking=True).float() / opt.output_h
 
-            out_conv_layer = out_layer.view(fm_batch, fm_ch, fm_w, fm_h)
-            output = model.get_deconv_layers(out_conv_layer)
-
-            loss = crit(output[-1]['hm'], batch['target'])
+            loss += crit(out_rets[-1]['hm'][t], batches['target'][t])
             loss_3d = crit_3d(
-                output[-1]['depth'], batch['reg_mask'], batch['reg_ind'],
-                batch['reg_target'], gt_2d)
+                out_rets[t][-1]['depth'], batches['reg_mask'][t], batches['reg_ind'][t],
+                batches['reg_target'][t], gt_2d)
             for k in range(opt.num_stacks - 1):
-                loss += crit(output[k], batch['target'])
+                loss += crit(out_rets[t][k], batches['target'][t])
                 loss_3d = crit_3d(
-                    output[-1]['depth'], batch['reg_mask'], batch['reg_ind'],
-                    batch['reg_target'], gt_2d)
+                    out_rets[t][-1]['depth'], batches['reg_mask'][t], batches['reg_ind'][t],
+                    batches['reg_target'][t], gt_2d)
             loss += loss_3d
 
-            if split == 'train':
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
-            else:
-                input_ = batch['input'].cpu().numpy().copy()
+        if split == 'train':
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+        else:
+            for t in range(timestep):
+                input_ = batches['input'][t].cpu().numpy().copy()
                 input_[0] = flip(input_[0]).copy()[np.newaxis, ...]
                 input_flip_var = torch.from_numpy(input_).cuda(
                     device=opt.device, non_blocking=True)
@@ -105,71 +88,72 @@ def step(split, epoch, opt, data_loader, model, lstm, optimizer=None, timestep=5
                     device=opt.device, non_blocking=True)
                 output_depth_flip = torch.from_numpy(output_depth_flip).cuda(
                     device=opt.device, non_blocking=True)
-                output[-1]['hm'] = (output[-1]['hm'] + output_flip) / 2
-                output[-1]['depth'] = (output[-1]['depth'] + output_depth_flip) / 2
+                out_rets[t][-1]['hm'] = (out_rets[t][-1]['hm'] + output_flip) / 2
+                out_rets[t][-1]['depth'] = (out_rets[t][-1]['depth'] + output_depth_flip) / 2
                 # pred, amb_idx = get_preds(output[-1]['hm'].detach().cpu().numpy())
                 # preds.append(convert_eval_format(pred, conf, meta)[0])
 
-            Loss.update(loss.item(), batch['input'].size(0))
-            Loss3D.update(loss_3d.item(), batch['input'].size(0))
-            Acc.update(accuracy(output[-1]['hm'].detach().cpu().numpy(),
-                                batch['target'].detach().cpu().numpy(), acc_idxs))
-            mpeje_batch, mpjpe_cnt = mpjpe(output[-1]['hm'].detach().cpu().numpy(),
-                                           output[-1]['depth'].detach().cpu().numpy(),
-                                           batch['meta']['gt_3d'].detach().numpy(),
+        for t in range(timestep):
+            Loss.update(loss.item(), batches['input'][t].size(0))
+            Loss3D.update(loss_3d.item(), batches['input'][t].size(0))
+            Acc.update(accuracy(out_rets[t][-1]['hm'].detach().cpu().numpy(),
+                                batches['target'][t].detach().cpu().numpy(), acc_idxs))
+            mpeje_batch, mpjpe_cnt = mpjpe(out_rets[t][-1]['hm'].detach().cpu().numpy(),
+                                           out_rets[t][-1]['depth'].detach().cpu().numpy(),
+                                           batches['meta'][t]['gt_3d'].detach().numpy(),
                                            convert_func=convert_eval_format)
             MPJPE.update(mpeje_batch, mpjpe_cnt)
 
-            batch_time.update(time.time() - end)
-            end = time.time()
+        batch_time.update(time.time() - end)
+        end = time.time()
 
-            if not opt.hide_data_time:
-                time_str = ' |Data {dt.avg:.3f}s({dt.val:.3f}s)' \
-                           ' |Net {bt.avg:.3f}s'.format(dt=data_time, bt=batch_time)
+        if not opt.hide_data_time:
+            time_str = ' |Data {dt.avg:.3f}s({dt.val:.3f}s)' \
+                       ' |Net {bt.avg:.3f}s'.format(dt=data_time, bt=batch_time)
 
-            Bar.suffix = '{split}: [{0}][{1}/{2}] |Total {total:} |ETA {eta:} '\
-                         '|Loss {loss.avg:.5f} |Loss3D {loss_3d.avg:.5f}'\
-                         '|Acc {Acc.avg:.4f} |MPJPE {MPJPE.avg:.2f}'\
-                         '{time_str}'.format(epoch, i, nIters, total=bar.elapsed_td,
-                                             eta=bar.eta_td, loss=Loss, Acc=Acc,
-                                             split=split, time_str=time_str,
-                                             MPJPE=MPJPE, loss_3d=Loss3D)
-            if opt.print_iter > 0:
-                if i % opt.print_iter == 0:
-                    print('{}| {}'.format(opt.exp_id, Bar.suffix))
-            else:
-                bar.next()
-            if opt.debug >= 2:
-                gt, amb_idx = get_preds(batch['target'].cpu().numpy())
-                gt *= 4
-                pred, amb_idx = get_preds(output[-1]['hm'].detach().cpu().numpy())
-                pred *= 4
-                debugger = Debugger(ipynb=opt.print_iter > 0, edges=edges)
-                img = (
-                    batch['input'][0].cpu().numpy().transpose(
-                        1, 2, 0) * std + mean) * 256
-                img = img.astype(np.uint8).copy()
-                debugger.add_img(img)
-                debugger.add_mask(
-                    cv2.resize(batch['target'][0].cpu().numpy().max(axis=0),
-                               (opt.input_w, opt.input_h)), img, 'target')
-                debugger.add_mask(
-                    cv2.resize(output[-1]['hm'][0].detach().cpu().numpy().max(axis=0),
-                               (opt.input_w, opt.input_h)), img, 'pred')
-                debugger.add_point_2d(gt[0], (0, 0, 255))
-                debugger.add_point_2d(pred[0], (255, 0, 0))
-                debugger.add_point_3d(
-                    batch['meta']['gt_3d'].detach().numpy()[0],
-                    'r',
-                    edges=edges_3d)
-                pred_3d, ignore_idx = get_preds_3d(output[-1]['hm'].detach().cpu().numpy(),
-                                                   output[-1]['depth'].detach().cpu().numpy(),
-                                                   amb_idx)
-                debugger.add_point_3d(
-                    convert_eval_format(
-                        pred_3d[0]), 'b', edges=edges_3d)
-                debugger.show_all_imgs(pause=False)
-                debugger.show_3d()
+        Bar.suffix = '{split}: [{0}][{1}/{2}] |Total {total:} |ETA {eta:} '\
+                     '|Loss {loss.avg:.5f} |Loss3D {loss_3d.avg:.5f}'\
+                     '|Acc {Acc.avg:.4f} |MPJPE {MPJPE.avg:.2f}'\
+                     '{time_str}'.format(epoch, i, nIters, total=bar.elapsed_td,
+                                         eta=bar.eta_td, loss=Loss, Acc=Acc,
+                                         split=split, time_str=time_str,
+                                         MPJPE=MPJPE, loss_3d=Loss3D)
+        if opt.print_iter > 0:
+            if i % opt.print_iter == 0:
+                print('{}| {}'.format(opt.exp_id, Bar.suffix))
+        else:
+            bar.next()
+        if opt.debug >= 2:
+            gt, amb_idx = get_preds(batches['target'].cpu().numpy())
+            gt *= 4
+            pred, amb_idx = get_preds(output[-1]['hm'].detach().cpu().numpy())
+            pred *= 4
+            debugger = Debugger(ipynb=opt.print_iter > 0, edges=edges)
+            img = (
+                batch['input'][0].cpu().numpy().transpose(
+                    1, 2, 0) * std + mean) * 256
+            img = img.astype(np.uint8).copy()
+            debugger.add_img(img)
+            debugger.add_mask(
+                cv2.resize(batch['target'][0].cpu().numpy().max(axis=0),
+                           (opt.input_w, opt.input_h)), img, 'target')
+            debugger.add_mask(
+                cv2.resize(output[-1]['hm'][0].detach().cpu().numpy().max(axis=0),
+                           (opt.input_w, opt.input_h)), img, 'pred')
+            debugger.add_point_2d(gt[0], (0, 0, 255))
+            debugger.add_point_2d(pred[0], (255, 0, 0))
+            debugger.add_point_3d(
+                batch['meta']['gt_3d'].detach().numpy()[0],
+                'r',
+                edges=edges_3d)
+            pred_3d, ignore_idx = get_preds_3d(output[-1]['hm'].detach().cpu().numpy(),
+                                               output[-1]['depth'].detach().cpu().numpy(),
+                                               amb_idx)
+            debugger.add_point_3d(
+                convert_eval_format(
+                    pred_3d[0]), 'b', edges=edges_3d)
+            debugger.show_all_imgs(pause=False)
+            debugger.show_3d()
 
     bar.finish()
     return {'loss': Loss.avg,
@@ -178,8 +162,8 @@ def step(split, epoch, opt, data_loader, model, lstm, optimizer=None, timestep=5
             'time': bar.elapsed_td.total_seconds() / 60.}, preds
 
 
-def train_lstm(epoch, opt, train_loader, model, lstm, optimizer, timestep):
-    return step('train', epoch, opt, train_loader, model, lstm, optimizer, timestep)
+def train_lstm(epoch, opt, train_loader, model, optimizer, timestep):
+    return step('train', epoch, opt, train_loader, model, optimizer, timestep)
 
 
 def val_lstm(epoch, opt, val_loader, model, lstm, timestep):
