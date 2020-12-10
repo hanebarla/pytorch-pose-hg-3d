@@ -106,7 +106,7 @@ def main(opt):
             print('Drop LR to', lr)
             for param_group in optimizer.param_groups:
                 param_group['lr'] = lr
-    logger.close()
+    # logger.close()
 
 
 if __name__ == '__main__':

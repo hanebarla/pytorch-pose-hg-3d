@@ -39,7 +39,7 @@ class opts():
                                  'the input resolution is rectangle')
         self.parser.add_argument('--lr', type=float, default=0.001)
         self.parser.add_argument('--lr_step', type=str, default='90,120')
-        self.parser.add_argument('--num_epochs', type=int, default=140)
+        self.parser.add_argument('--num_epochs', type=int, default=140) # change
         self.parser.add_argument('--val_intervals', type=int, default=5)
         self.parser.add_argument('--batch_size', type=int, default=32)
         self.parser.add_argument('--arch', default='msra_50',

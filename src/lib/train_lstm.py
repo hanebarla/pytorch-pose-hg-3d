@@ -36,38 +36,40 @@ def step(split, epoch, opt, data_loader, model, optimizer=None, timestep=4):
     nIters = len(data_loader)
     bar = Bar('{}'.format(opt.exp_id), max=nIters)
 
-    hidden = None
-
     end = time.time()
     for i, batches in enumerate(data_loader):
         data_time.update(time.time() - end)
-        loss = 0
+        loss = 0.0
+        loss_3d_times = []
+        hidden = None
 
         for k in batches:
             if k != 'meta':
                 for t in range(timestep):
                     batches[k][t] = batches[k][t].cuda(device=opt.device, non_blocking=True)
 
-        out_rets = model(batches['input'], hidden)
+        out_rets, hidden = model(batches['input'], hidden)
 
         for t in range(timestep):
             gt_2d = batches['meta'][t]['pts_crop'].cuda(
                 device=opt.device, non_blocking=True).float() / opt.output_h
 
-            loss += crit(out_rets[-1]['hm'][t], batches['target'][t])
+            loss = crit(out_rets[t][-1]['hm'], batches['target'][t])
             loss_3d = crit_3d(
                 out_rets[t][-1]['depth'], batches['reg_mask'][t], batches['reg_ind'][t],
                 batches['reg_target'][t], gt_2d)
+            loss_3d_times.append(loss_3d)
             for k in range(opt.num_stacks - 1):
                 loss += crit(out_rets[t][k], batches['target'][t])
                 loss_3d = crit_3d(
                     out_rets[t][-1]['depth'], batches['reg_mask'][t], batches['reg_ind'][t],
                     batches['reg_target'][t], gt_2d)
+                loss_3d_times.append(loss_3d)
             loss += loss_3d
 
         if split == 'train':
             optimizer.zero_grad()
-            loss.backward()
+            loss.backward(retain_graph=True)
             optimizer.step()
         else:
             for t in range(timestep):
@@ -94,6 +96,7 @@ def step(split, epoch, opt, data_loader, model, optimizer=None, timestep=4):
                 # preds.append(convert_eval_format(pred, conf, meta)[0])
 
         for t in range(timestep):
+            loss_3d = loss_3d_times[t]
             Loss.update(loss.item(), batches['input'][t].size(0))
             Loss3D.update(loss_3d.item(), batches['input'][t].size(0))
             Acc.update(accuracy(out_rets[t][-1]['hm'].detach().cpu().numpy(),
@@ -124,36 +127,39 @@ def step(split, epoch, opt, data_loader, model, optimizer=None, timestep=4):
         else:
             bar.next()
         if opt.debug >= 2:
-            gt, amb_idx = get_preds(batches['target'].cpu().numpy())
-            gt *= 4
-            pred, amb_idx = get_preds(output[-1]['hm'].detach().cpu().numpy())
-            pred *= 4
-            debugger = Debugger(ipynb=opt.print_iter > 0, edges=edges)
-            img = (
-                batch['input'][0].cpu().numpy().transpose(
-                    1, 2, 0) * std + mean) * 256
-            img = img.astype(np.uint8).copy()
-            debugger.add_img(img)
-            debugger.add_mask(
-                cv2.resize(batch['target'][0].cpu().numpy().max(axis=0),
-                           (opt.input_w, opt.input_h)), img, 'target')
-            debugger.add_mask(
-                cv2.resize(output[-1]['hm'][0].detach().cpu().numpy().max(axis=0),
-                           (opt.input_w, opt.input_h)), img, 'pred')
-            debugger.add_point_2d(gt[0], (0, 0, 255))
-            debugger.add_point_2d(pred[0], (255, 0, 0))
-            debugger.add_point_3d(
-                batch['meta']['gt_3d'].detach().numpy()[0],
-                'r',
-                edges=edges_3d)
-            pred_3d, ignore_idx = get_preds_3d(output[-1]['hm'].detach().cpu().numpy(),
-                                               output[-1]['depth'].detach().cpu().numpy(),
-                                               amb_idx)
-            debugger.add_point_3d(
-                convert_eval_format(
-                    pred_3d[0]), 'b', edges=edges_3d)
-            debugger.show_all_imgs(pause=False)
-            debugger.show_3d()
+            for t in range(timestep):
+                output = out_rets[t]
+                batch = batches[t]
+                gt, amb_idx = get_preds(batches['target'].cpu().numpy())
+                gt *= 4
+                pred, amb_idx = get_preds(output[-1]['hm'].detach().cpu().numpy())
+                pred *= 4
+                debugger = Debugger(ipynb=opt.print_iter > 0, edges=edges)
+                img = (
+                    batch['input'][0].cpu().numpy().transpose(
+                        1, 2, 0) * std + mean) * 256
+                img = img.astype(np.uint8).copy()
+                debugger.add_img(img)
+                debugger.add_mask(
+                    cv2.resize(batch['target'][0].cpu().numpy().max(axis=0),
+                               (opt.input_w, opt.input_h)), img, 'target')
+                debugger.add_mask(
+                    cv2.resize(output[-1]['hm'][0].detach().cpu().numpy().max(axis=0),
+                               (opt.input_w, opt.input_h)), img, 'pred')
+                debugger.add_point_2d(gt[0], (0, 0, 255))
+                debugger.add_point_2d(pred[0], (255, 0, 0))
+                debugger.add_point_3d(
+                    batch['meta']['gt_3d'].detach().numpy()[0],
+                    'r',
+                    edges=edges_3d)
+                pred_3d, ignore_idx = get_preds_3d(output[-1]['hm'].detach().cpu().numpy(),
+                                                   output[-1]['depth'].detach().cpu().numpy(),
+                                                   amb_idx)
+                debugger.add_point_3d(
+                    convert_eval_format(
+                        pred_3d[0]), 'b', edges=edges_3d)
+                debugger.show_all_imgs(pause=False)
+                debugger.show_3d()
 
     bar.finish()
     return {'loss': Loss.avg,

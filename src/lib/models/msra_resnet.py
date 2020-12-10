@@ -78,7 +78,7 @@ class Bottleneck(nn.Module):
                                bias=False)
         self.bn3 = nn.BatchNorm2d(planes * self.expansion,
                                   momentum=BN_MOMENTUM)
-        self.relu = nn.ReLU(inplace=True)
+        self.relu = nn.ReLU(inplace=False)
         self.downsample = downsample
         self.stride = stride
 
@@ -392,29 +392,32 @@ class PoseLSTMResNet(nn.Module):
                 x = self.layer1(x)
                 x = self.layer2(x)
                 x = self.layer3(x)
-                x = self.layer4(x)
-                x_skip.append(x)
-            x = self.linear1(x)
+                y = self.layer4(x)
+                x_skip.append(y)
 
-            xch_list.append(x)
+            w = self.linear1(y)
+
+            xch_list.append(w)
 
         xch = torch.stack(xch_list, dim=1)
         xch, hidden = self.lstm(xch, hidden)
 
         for i in range(self.timestep):
             x1 = x_skip[i]
-            x2 = xch_list[i]
+            x2 = xch[:, i, :]
             x2 = self.linear2(x2)
-            torch.unsqueeze(x2, -1)
-            torch.unsqueeze(x2, -1)
+            x2_size = x2.size()
+            # x2 = torch.unsqueeze(x2, -1)
+            # x2 = torch.unsqueeze(x2, -1)
+            x2 = x2.view(x2_size[0], x2_size[1], 1, 1)
             x2 = self.upsample(x2)
             x = x1 + x2
             x = self.deconv_layers(x)
             ret = {}
             for head in self.heads:
                 ret[head] = self.__getattr__(head)(x)
-            rets.append(ret)
-        return rets
+            rets.append([ret])
+        return rets, hidden
 
     def init_weights(self, num_layers, pretrained=True):
         if pretrained:
