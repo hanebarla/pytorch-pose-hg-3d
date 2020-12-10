@@ -28,6 +28,7 @@ def demo_image(image, model, opt, timestep):
     inps = []
     s = None
     c = None
+    hidden = None
     for t in range(timestep):
         s = max(image[t].shape[0], image[t].shape[1]) * 1.0
         c = np.array([image[t].shape[1] / 2., image[t].shape[0] / 2.], dtype=np.float32)
@@ -39,7 +40,7 @@ def demo_image(image, model, opt, timestep):
         inp = inp.transpose(2, 0, 1)[np.newaxis, ...].astype(np.float32)
         inp = torch.from_numpy(inp).to(opt.device)
         inps.append(inp)
-    out = model(inps)[-1][-1]
+    out = model(inps, hidden)[-1][-1]
     preds, amb_idx = get_preds(out['hm'].detach().cpu().numpy())
     pred = preds[0]
     pred = transform_preds(pred, c, s, (opt.output_w, opt.output_h))
