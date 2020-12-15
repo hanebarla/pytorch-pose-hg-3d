@@ -9,7 +9,7 @@ import os
 import torch
 import torch.utils.data
 from opts import opts
-from model import create_model, save_model, create_lstm
+from model import create_model, save_model, create_lstm, create_conv3d
 from datasets.mpii import MPII
 from datasets.coco import COCO
 from datasets.fusion_3d import Fusion3D
@@ -18,19 +18,22 @@ from logger import Logger
 from train import train, val
 from train_3d import train_3d, val_3d
 from train_lstm import train_lstm, val_lstm
+from train_conv3d import train_conv3d, val_conv3d
 import scipy.io as sio
 
 dataset_factory = {
     'mpii': MPII,
     'coco': COCO,
     'fusion_3d': Fusion3D,
-    'lstm': H36M
+    'lstm': H36M,
+    'conv3d': H36M
 }
 
 task_factory = {
     'human2d': (train, val),
     'human3d': (train_3d, val_3d),
-    "lstm": (train_lstm, val_lstm)
+    "lstm": (train_lstm, val_lstm),
+    "conv3d": (train_conv3d, val_conv3d)
 }
 
 
@@ -48,7 +51,10 @@ def main(opt):
     LstmData = SeqH36m(Dataset(opt, 'train', 1), timestep)
     train, val = task_factory[opt.task]
 
-    model, optimizer, start_epoch = create_lstm(opt, timestep)
+    if opt.task == "conv3d":
+        model, optimizer, start_epoch = create_conv3d(opt, timestep)
+    else:
+        model, optimizer, start_epoch = create_lstm(opt, timestep)
 
     if len(opt.gpus) > 1:
         model = torch.nn.DataParallel(
