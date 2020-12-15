@@ -120,6 +120,11 @@ python main.py --exp_id fusion_3d_var --task human3d --dataset fusion_3d --ratio
 python main_lstm.py --exp_id fusion_3d_var --task lstm --dataset lstm --ratio_3d 1 --weight_3d 0.1 --weight_var 0.01 --load_model ../models/fusion_3d.pth  --num_epoch 10 --lr 1e-4
 ```
 
+- Othere Step: Train Conv3D
+```
+python main_lstm.py --exp_id fusion_3d_var --task conv3d --dataset conv3d --ratio_3d 1 --weight_3d 0.1 --weight_var 0.01 --load_model ../models/fusion_3d.pth  --num_epoch 10 --lr 1e-4
+```
+
 ## Citation
 
     @InProceedings{Zhou_2017_ICCV,

@@ -476,7 +476,9 @@ class Pose3DCNNResNet(nn.Module):
 
         # 3DCNN
         self.conv3d = nn.Conv3d(2048, 1024, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(1, 1, 1))
-        self.de_conv2d = nn.Conv2d(2014, 2048, kernel_size=(2, 2), padding=(1, 1))
+        nn.init.kaiming_normal_(self.conv3d.weight)
+        self.de_conv2d = nn.Conv2d(1024, 2048, kernel_size=(3, 3), padding=(1, 1))
+        nn.init.kaiming_normal_(self.de_conv2d)
 
         # used for deconv layers
         self.deconv_layers = self._make_deconv_layer(
@@ -572,11 +574,11 @@ class Pose3DCNNResNet(nn.Module):
                 y = self.layer4(x)
                 y_list.append(y)
 
-        ys = torch.stack(y_list, dim=1)
+        ys = torch.stack(y_list, dim=2)
         ys = self.conv3d(ys)
 
         for i in range(self.timestep):
-            z = ys[:, i, :, :]
+            z = ys[:, :, i, :, :]
             z = self.de_conv2d(z)
             z = self.deconv_layers(z)
             ret = {}
