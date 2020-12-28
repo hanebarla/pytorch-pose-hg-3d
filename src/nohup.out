@@ -1,0 +1,17 @@
+USE_TENSORBOARD:  False
+heads {'hm': 16, 'depth': 16}
+==> initializing 3D train data.
+Loaded 3D train 35832 samples
+=> using msra resnet 'msra_50'
+=> loading pretrained model https://download.pytorch.org/models/resnet50-19c8e357.pth
+loaded ../models/fusion_3d.pth, epoch 0
+==> initializing 3D val data.
+Loaded 3D val 1932 samples
+/home/habara/anaconda3/envs/crowd/lib/python3.6/site-packages/torch/nn/_reduction.py:44: UserWarning: size_average and reduce args will be deprecated, please use reduction='sum' instead.
+  warnings.warn(warning.format(ret))
+Traceback (most recent call last):
+  File "main_lstm.py", line 120, in <module>
+    main(opt)
+  File "main_lstm.py", line 98, in main
+    log_dict_val, preds = val(epoch, opt, val_loader, model)
+TypeError: val_lstm() missing 2 required positional arguments: 'lstm' and 'timestep'

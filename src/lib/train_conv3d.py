@@ -49,22 +49,22 @@ def step(split, epoch, opt, data_loader, model, optimizer=None, timestep=4):
 
         out_rets = model(batches['input'])
 
-        for t in range(timestep):
-            gt_2d = batches['meta'][t]['pts_crop'].cuda(
-                device=opt.device, non_blocking=True).float() / opt.output_h
+        # for t in range(timestep):
+        gt_2d = batches['meta'][-1]['pts_crop'].cuda(
+            device=opt.device, non_blocking=True).float() / opt.output_h
 
-            loss = crit(out_rets[t][-1]['hm'], batches['target'][t])
+        loss = crit(out_rets[-1][-1]['hm'], batches['target'][-1])
+        loss_3d = crit_3d(
+            out_rets[-1][-1]['depth'], batches['reg_mask'][-1], batches['reg_ind'][-1],
+            batches['reg_target'][-1], gt_2d)
+        loss_3d_times.append(loss_3d)
+        for k in range(opt.num_stacks - 1):
+            loss += crit(out_rets[-1][k], batches['target'][-1])
             loss_3d = crit_3d(
-                out_rets[t][-1]['depth'], batches['reg_mask'][t], batches['reg_ind'][t],
-                batches['reg_target'][t], gt_2d)
+                out_rets[-1][-1]['depth'], batches['reg_mask'][-1], batches['reg_ind'][-1],
+                batches['reg_target'][-1], gt_2d)
             loss_3d_times.append(loss_3d)
-            for k in range(opt.num_stacks - 1):
-                loss += crit(out_rets[t][k], batches['target'][t])
-                loss_3d = crit_3d(
-                    out_rets[t][-1]['depth'], batches['reg_mask'][t], batches['reg_ind'][t],
-                    batches['reg_target'][t], gt_2d)
-                loss_3d_times.append(loss_3d)
-            loss += loss_3d
+        loss += loss_3d
 
         if split == 'train':
             optimizer.zero_grad()
@@ -94,17 +94,17 @@ def step(split, epoch, opt, data_loader, model, optimizer=None, timestep=4):
                 # pred, amb_idx = get_preds(output[-1]['hm'].detach().cpu().numpy())
                 # preds.append(convert_eval_format(pred, conf, meta)[0])
 
-        for t in range(timestep):
-            loss_3d = loss_3d_times[t]
-            Loss.update(loss.item(), batches['input'][t].size(0))
-            Loss3D.update(loss_3d.item(), batches['input'][t].size(0))
-            Acc.update(accuracy(out_rets[t][-1]['hm'].detach().cpu().numpy(),
-                                batches['target'][t].detach().cpu().numpy(), acc_idxs))
-            mpeje_batch, mpjpe_cnt = mpjpe(out_rets[t][-1]['hm'].detach().cpu().numpy(),
-                                           out_rets[t][-1]['depth'].detach().cpu().numpy(),
-                                           batches['meta'][t]['gt_3d'].detach().numpy(),
-                                           convert_func=convert_eval_format)
-            MPJPE.update(mpeje_batch, mpjpe_cnt)
+        # for t in range(timestep):
+        loss_3d = loss_3d_times[-1]
+        Loss.update(loss.item(), batches['input'][-1].size(0))
+        Loss3D.update(loss_3d.item(), batches['input'][t].size(0))
+        Acc.update(accuracy(out_rets[-1][-1]['hm'].detach().cpu().numpy(),
+                            batches['target'][-1].detach().cpu().numpy(), acc_idxs))
+        mpeje_batch, mpjpe_cnt = mpjpe(out_rets[-1][-1]['hm'].detach().cpu().numpy(),
+                                       out_rets[-1][-1]['depth'].detach().cpu().numpy(),
+                                       batches['meta'][-1]['gt_3d'].detach().numpy(),
+                                       convert_func=convert_eval_format)
+        MPJPE.update(mpeje_batch, mpjpe_cnt)
 
         batch_time.update(time.time() - end)
         end = time.time()
@@ -159,6 +159,8 @@ def step(split, epoch, opt, data_loader, model, optimizer=None, timestep=4):
                         pred_3d[0]), 'b', edges=edges_3d)
                 debugger.show_all_imgs(pause=False)
                 debugger.show_3d()
+
+        del batches
 
     bar.finish()
     return {'loss': Loss.avg,

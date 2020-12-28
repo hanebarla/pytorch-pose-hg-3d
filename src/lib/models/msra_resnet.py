@@ -478,7 +478,7 @@ class Pose3DCNNResNet(nn.Module):
         self.conv3d = nn.Conv3d(2048, 1024, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(1, 1, 1))
         nn.init.kaiming_normal_(self.conv3d.weight)
         self.de_conv2d = nn.Conv2d(1024, 2048, kernel_size=(3, 3), padding=(1, 1))
-        nn.init.kaiming_normal_(self.de_conv2d)
+        nn.init.kaiming_normal_(self.de_conv2d.weight)
 
         # used for deconv layers
         self.deconv_layers = self._make_deconv_layer(

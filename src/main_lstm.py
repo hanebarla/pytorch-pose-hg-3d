@@ -95,7 +95,7 @@ def main(opt):
         if opt.val_intervals > 0 and epoch % opt.val_intervals == 0:
             save_model(os.path.join(opt.save_dir, 'model_lstm_{}.pth'.format(mark)),
                        epoch, model, optimizer)
-            log_dict_val, preds = val(epoch, opt, val_loader, model)
+            log_dict_val, preds = val(epoch, opt, val_loader, model, timestep)
             for k, v in log_dict_val.items():
                 logger.scalar_summary('val_{}'.format(k), v, epoch)
                 logger.write('{} {:8f} | '.format(k, v))
