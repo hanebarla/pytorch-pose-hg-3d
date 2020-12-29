@@ -40,18 +40,19 @@ def demo_image(image, model, opt, timestep):
         inp = inp.transpose(2, 0, 1)[np.newaxis, ...].astype(np.float32)
         inp = torch.from_numpy(inp).to(opt.device)
         inps.append(inp)
-    out = model(inps, hidden)[-1][-1]
-    preds, amb_idx = get_preds(out['hm'].detach().cpu().numpy())
+    outs, hidden = model(inps, hidden)
+    out = outs[-1]
+    preds, amb_idx = get_preds(out[-1]['hm'].detach().cpu().numpy())
     pred = preds[0]
     pred = transform_preds(pred, c, s, (opt.output_w, opt.output_h))
-    pred_3d, ignore_idx = get_preds_3d(out['hm'].detach().cpu().numpy(),
-                                       out['depth'].detach().cpu().numpy(),
+    pred_3d, ignore_idx = get_preds_3d(out[-1]['hm'].detach().cpu().numpy(),
+                                       out[-1]['depth'].detach().cpu().numpy(),
                                        amb_idx)
 
     pred_3d = pred_3d[0]
     ignore_idx = ignore_idx[0]
 
-    return image, pred, pred_3d, ignore_idx
+    return image[-1], pred, pred_3d, ignore_idx
 
 
 def main(opt):
@@ -86,8 +87,10 @@ def main(opt):
         if len(input_imgs) < timestep:
             input_imgs.append(frame)
         elif len(input_imgs) == timestep:
-            image, pred, pred_3d, ignore_idx = demo_image(input_imgs, model, opt, timestep)
+            input_imgs.append(frame)
+            input_imgs.pop(0)
 
+            image, pred, pred_3d, ignore_idx = demo_image(input_imgs, model, opt, timestep)
             debugger.add_img(image)
             debugger.add_point_2d(pred, (255, 0, 0))
             debugger.add_point_3d(pred_3d, 'b', ignore_idx=ignore_idx)
