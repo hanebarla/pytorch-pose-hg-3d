@@ -71,28 +71,30 @@ def step(split, epoch, opt, data_loader, model, optimizer=None, timestep=4):
             loss.backward(retain_graph=True)
             optimizer.step()
         else:
+            inputs_ = []
             for t in range(timestep):
                 input_ = batches['input'][t].cpu().numpy().copy()
                 input_[0] = flip(input_[0]).copy()[np.newaxis, ...]
                 input_flip_var = torch.from_numpy(input_).cuda(
                     device=opt.device, non_blocking=True)
-                output_flip_ = model(input_flip_var)
-                output_flip = shuffle_lr(
-                    flip(output_flip_[-1]['hm'].detach().cpu().numpy()[0]), shuffle_ref)
-                output_flip = output_flip.reshape(
-                    1, opt.num_output, opt.output_h, opt.output_w)
-                output_depth_flip = shuffle_lr(
-                    flip(output_flip_[-1]['depth'].detach().cpu().numpy()[0]), shuffle_ref)
-                output_depth_flip = output_depth_flip.reshape(
-                    1, opt.num_output, opt.output_h, opt.output_w)
-                output_flip = torch.from_numpy(output_flip).cuda(
-                    device=opt.device, non_blocking=True)
-                output_depth_flip = torch.from_numpy(output_depth_flip).cuda(
-                    device=opt.device, non_blocking=True)
-                out_rets[t][-1]['hm'] = (out_rets[t][-1]['hm'] + output_flip) / 2
-                out_rets[t][-1]['depth'] = (out_rets[t][-1]['depth'] + output_depth_flip) / 2
-                # pred, amb_idx = get_preds(output[-1]['hm'].detach().cpu().numpy())
-                # preds.append(convert_eval_format(pred, conf, meta)[0])
+                inputs_.append(input_flip_var)
+            output_flip_ = model(inputs_)
+            output_flip = shuffle_lr(
+                flip(output_flip_[-1]['hm'].detach().cpu().numpy()[0]), shuffle_ref)
+            output_flip = output_flip.reshape(
+                1, opt.num_output, opt.output_h, opt.output_w)
+            output_depth_flip = shuffle_lr(
+                flip(output_flip_[-1]['depth'].detach().cpu().numpy()[0]), shuffle_ref)
+            output_depth_flip = output_depth_flip.reshape(
+                1, opt.num_output, opt.output_h, opt.output_w)
+            output_flip = torch.from_numpy(output_flip).cuda(
+                device=opt.device, non_blocking=True)
+            output_depth_flip = torch.from_numpy(output_depth_flip).cuda(
+                device=opt.device, non_blocking=True)
+            out_rets[t][-1]['hm'] = (out_rets[t][-1]['hm'] + output_flip) / 2
+            out_rets[t][-1]['depth'] = (out_rets[t][-1]['depth'] + output_depth_flip) / 2
+            # pred, amb_idx = get_preds(output[-1]['hm'].detach().cpu().numpy())
+            # preds.append(convert_eval_format(pred, conf, meta)[0])
 
         # for t in range(timestep):
         loss_3d = loss_3d_times[-1]
