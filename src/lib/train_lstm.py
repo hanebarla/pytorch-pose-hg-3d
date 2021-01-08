@@ -78,18 +78,20 @@ def step(split, epoch, opt, data_loader, model, optimizer=None, timestep=4):
                     raise ValueError
             optimizer.step()
         else:
-            # for t in range(timestep):
-            input_ = batches['input'][-1].cpu().numpy().copy()
-            input_[0] = flip(input_[0]).copy()[np.newaxis, ...]
-            input_flip_var = torch.from_numpy(input_).cuda(
-                device=opt.device, non_blocking=True)
-            output_flip_ = model(input_flip_var)
+            input_flip_var = []
+            for t in range(timestep):
+                input_ = batches['input'][t].cpu().numpy().copy()
+                input_[-1] = flip(input_[-1]).copy()[np.newaxis, ...]
+                input_flip_var.append(torch.from_numpy(input_).cuda(
+                    device=opt.device, non_blocking=True))
+            _ = None
+            output_flip_, _ = model(input_flip_var, _)
             output_flip = shuffle_lr(
-                flip(output_flip_[-1]['hm'].detach().cpu().numpy()[0]), shuffle_ref)
+                flip(output_flip_[-1][-1]['hm'].detach().cpu().numpy()[0]), shuffle_ref)
             output_flip = output_flip.reshape(
                 1, opt.num_output, opt.output_h, opt.output_w)
             output_depth_flip = shuffle_lr(
-                flip(output_flip_[-1]['depth'].detach().cpu().numpy()[0]), shuffle_ref)
+                flip(output_flip_[-1][-1]['depth'].detach().cpu().numpy()[0]), shuffle_ref)
             output_depth_flip = output_depth_flip.reshape(
                 1, opt.num_output, opt.output_h, opt.output_w)
             output_flip = torch.from_numpy(output_flip).cuda(
@@ -178,8 +180,8 @@ def train_lstm(epoch, opt, train_loader, model, optimizer, timestep):
     return step('train', epoch, opt, train_loader, model, optimizer, timestep)
 
 
-def val_lstm(epoch, opt, val_loader, model, lstm, timestep):
-    return step('val', epoch, opt, val_loader, model, lstm, timestep)
+def val_lstm(epoch, opt, val_loader, model, timestep):
+    return step('val', epoch, opt, val_loader, model, timestep=timestep)
 
 
 class AverageMeter(object):
