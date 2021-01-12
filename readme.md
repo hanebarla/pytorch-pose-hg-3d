@@ -125,6 +125,11 @@ python main_lstm.py --exp_id lstm --task lstm --dataset lstm --ratio_3d 1 --weig
 python main_lstm.py --exp_id conv3d --task conv3d --dataset conv3d --ratio_3d 1 --weight_3d 0.1 --weight_var 0.01 --load_model ../models/fusion_3d.pth  --num_epoch 10 --lr 1e-4
 ```
 
+- optuna
+```
+python train_optuna.py --exp_id conv3d --task conv3d --dataset conv3d --ratio_3d 1 --weight_3d 0.1 --weight_var 0.01 --load_model ../models/fusion_3d.pth  --num_epoch 10 --lr 1e-4
+```
+
 ## Citation
 
     @InProceedings{Zhou_2017_ICCV,

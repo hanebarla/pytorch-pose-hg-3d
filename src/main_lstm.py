@@ -113,6 +113,7 @@ def main(opt):
             for param_group in optimizer.param_groups:
                 param_group['lr'] = lr
     # logger.close()
+    return log_dict_train['loss']
 
 
 if __name__ == '__main__':
